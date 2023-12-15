@@ -1,0 +1,29 @@
+[package]
+name = "axum-embed"
+version = "0.1.0"
+edition = "2021"
+authors = ["Yasunobu Okamura"]
+description = "Serve embedded files with axum"
+readme = "README.md"
+repository = "https://github.com/informationsea/axum-embed"
+homepage = "https://github.com/informationsea/axum-embed"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum-core = "0.4"
+mime_guess = "2"
+rust-embed = "8"
+http = "1"
+tower-service = "0.3"
+chrono = "0.4.31"
+
+[dev-dependencies]
+axum = "0.7.2"
+tokio = { version = "1.35.0", features = ["full"] }
+tower = "0.4.13"
+tower-http = { version = "0.5.0", features = ["full"] }
+anyhow = "1.0.75"
+clap = { version = "4.4.11", features = ["derive"] }
+http-body-util = "0.1.0"
