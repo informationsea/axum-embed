@@ -32,7 +32,7 @@
 //!
 //! # Usage
 //!
-//! Please see the [examples](https://github.com/inforamtionsea/axum-embed/tree/main/examples) directory for a working example.
+//! Please see the [examples](https://github.com/informationsea/axum-embed/tree/main/examples) directory for a working example.
 //!
 //! ## Serve compressed file
 //!

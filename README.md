@@ -10,29 +10,28 @@ This library uses the `rust_embed` crate to embedded files into the binary at co
 - Redirect to the directory if the client requests a directory without a trailing slash
 
 # Example
-```ignore
-# use rust_embed::RustEmbed;
-# use axum_embed::ServeEmbed;
-# use tokio::net::TcpListener;
-#
+```rust
+use rust_embed::RustEmbed;
+use axum_embed::ServeEmbed;
+use tokio::net::TcpListener;
+
 #[derive(RustEmbed, Clone)]
 #[folder = "examples/assets/"]
 struct Assets;
 
-# #[tokio::main]
-# async fn main() -> anyhow::Result<()> {
-let listener = TcpListener::bind("127.0.0.1:8080").await?;
-let serve_assets = ServeEmbed::<Assets>::new();
-let app = axum::Router::new().nest_service("/", serve_assets);
-axum::serve(listener, app).await?;
-
-# Ok(())
-# }
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let listener = TcpListener::bind("127.0.0.1:8080").await?;
+    let serve_assets = ServeEmbed::<Assets>::new();
+    let app = axum::Router::new().nest_service("/", serve_assets);
+    axum::serve(listener, app).await?;
+    Ok(())
+}
 ```
 
 # Usage
 
-Please see the [examples](https://github.com/inforamtionsea/axum-embed/tree/main/examples) directory for a working example.
+Please see the [examples](https://github.com/informationsea/axum-embed/tree/main/examples) directory for a working example.
 
 ## Serve compressed file
 
