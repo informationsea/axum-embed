@@ -72,13 +72,13 @@ jobs:
         if: ${{ matrix.config.cross }}
         run: |
           cargo install cross
-          echo "cross" > ~/.cargo/bin/cargo-cross
-          chmod +x ~/.cargo/bin/cargo-cross
+          echo -e "#!/bin/bash\ncross" > /usr/local/bin/cargo-cross
+          chmod +x /usr/local/bin/cargo-cross
       - name: No cross
         if: ${{ matrix.config.cross }}
         run: |
-          echo "cargo" > ~/.cargo/bin/cargo-cross
-          chmod +x ~/.cargo/bin/cargo-cross
+          echo -e "#!/bin/bash\ncargo" > /usr/local/bin/cargo-cross
+          chmod +x /usr/local/bin/cargo-cross
       - name: Build
         run: cargo-cross build --release --target ${{ matrix.config.target }}
       - name: Test
