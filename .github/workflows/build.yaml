@@ -72,13 +72,8 @@ jobs:
         if: ${{ matrix.config.cross }}
         run: |
           cargo install cross
-          echo -n cross > $HOME/cargo-cross
-      - name: No cross
-        if: ${{ !matrix.config.cross }}
-        run: |
-          echo -n cargo > $HOME/cargo-cross
       - name: Build
-        run: $(cat $HOME/cargo-cross) build --release --target ${{ matrix.config.target }}
+        run: ${{ matrix.config.cross && 'cross' || 'cargo' }} build --release --target ${{ matrix.config.target }}
       - name: Test
         if: ${{ matrix.config.test }}
-        run: $(cat $HOME/cargo-cross) test --release --target ${{ matrix.config.target }}
+        run: ${{ matrix.config.cross && 'cross' || 'cargo' }} test --release --target ${{ matrix.config.target }}
