@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main, action-test]
+    branches: [main, action-tests]
   pull_request:
     branches: [main]
 
