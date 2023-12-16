@@ -75,7 +75,7 @@ jobs:
           echo -e "#!/bin/bash\ncross" > /usr/local/bin/cargo-cross
           chmod +x /usr/local/bin/cargo-cross
       - name: No cross
-        if: ${{ matrix.config.cross }}
+        if: ${{ !matrix.config.cross }}
         run: |
           echo -e "#!/bin/bash\ncargo" > /usr/local/bin/cargo-cross
           chmod +x /usr/local/bin/cargo-cross
