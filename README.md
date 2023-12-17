@@ -1,4 +1,13 @@
-`axum_embed` is a library that provides a service for serving embedded files using the `axum` web framework.
+# axum-embed
+
+[![Crates.io](https://img.shields.io/crates/v/axum-embed)](https://crates.io/crates/axum-embed)
+[![Crates.io](https://img.shields.io/crates/l/axum-embed)](https://crates.io/crates/axum-embed)
+[![Build](https://github.com/informationsea/axum-embed/actions/workflows/build.yaml/badge.svg)](https://github.com/informationsea/axum-embed/actions/workflows/build.yaml)
+[![docs.rs](https://img.shields.io/docsrs/axum-embed)](https://docs.rs/axum-embed/)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/informationsea/axum-embed)
+
+
+`axum-embed` is a library that provides a service for serving embedded files using the `axum` web framework.
 
 This library uses the `rust_embed` crate to embedded files into the binary at compile time, and the `axum` crate to serve these files over HTTP.
 
