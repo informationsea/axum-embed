@@ -70,7 +70,7 @@ pub enum FallbackBehavior {
 /// [`ServeEmbed`] is a struct that represents a service for serving embedded files.
 ///
 /// # Parameters
-/// - `E`: A type that implements the [`RustEmbed`] trait. This type represents the embedded files.
+/// - `E`: A type that implements the [`RustEmbed`] and `Clone` trait. This type represents the embedded files.
 ///
 /// # Example
 /// ```ignore
@@ -308,7 +308,8 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
                     is_fallback: true,
                 };
             }
-            let fallback_try = self.get_file(fallback_file, acceptable_encoding);
+            let mut fallback_try = self.get_file(fallback_file, acceptable_encoding);
+            fallback_try.is_fallback = true;
             if fallback_try.file.is_some() {
                 return fallback_try;
             }
@@ -362,13 +363,21 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
                 file: _,
                 should_redirect: Some(should_redirect),
                 compression_method: _,
-                is_fallback: _,
+                is_fallback,
             } => {
                 return Poll::Ready(Ok(Response::builder()
-                    .status(StatusCode::MOVED_PERMANENTLY)
+                    .status(if is_fallback {
+                        StatusCode::TEMPORARY_REDIRECT
+                    } else {
+                        StatusCode::MOVED_PERMANENTLY
+                    })
                     .header(http::header::LOCATION, should_redirect)
                     .header(http::header::CONTENT_TYPE, "text/plain")
-                    .body(Body::from("Moved permanently"))
+                    .body(if is_fallback {
+                        Body::from("Temporary redirect")
+                    } else {
+                        Body::from("Moved permanently")
+                    })
                     .unwrap()));
             }
             // if the file is not found, return 404

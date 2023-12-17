@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main, action-test]
+    branches: [main, test-actions]
   pull_request:
     branches: [main]
 
@@ -37,11 +37,11 @@ jobs:
             cross: false
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            test: false
+            test: true
             cross: true
           - os: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
-            test: false
+            test: true
             cross: true
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
@@ -51,47 +51,29 @@ jobs:
       - name: Git config
         if: ${{ matrix.config.os == 'windows-latest' }}
         run: git config --global core.autocrlf input
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Install musl tools
         if: ${{ matrix.config.target == 'x86_64-unknown-linux-musl' }}
         run: sudo apt-get install musl-tools musl-dev
-      - name: Checkout submodule
-        run: git submodule update --init --recursive
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        run: rustup update && rustup target add ${{ matrix.config.target }}
+      - uses: actions/cache@v3
         with:
-          toolchain: stable
-          target: ${{ matrix.config.target }}
-          override: true
-          components: rustfmt, clippy
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.crate') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache target
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-target
-        with:
-          path: target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ matrix.config.target }}-${{ hashFiles('target/CACHEDIR.TAG') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-${{ matrix.config.target }}
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.config.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install cross
+        if: ${{ matrix.config.cross }}
+        run: |
+          cargo install cross
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: ${{ matrix.config.cross }}
-          command: build
-          args: --release --target ${{ matrix.config.target }} --examples
+        run: ${{ matrix.config.cross && 'cross' || 'cargo' }} build --release --target ${{ matrix.config.target }}
       - name: Test
         if: ${{ matrix.config.test }}
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: ${{ matrix.config.cross }}
-          command: test
-          args: --release --target ${{ matrix.config.target }}
+        run: ${{ matrix.config.cross && 'cross' || 'cargo' }} test --release --target ${{ matrix.config.target }}
