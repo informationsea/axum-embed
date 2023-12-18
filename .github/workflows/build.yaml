@@ -71,7 +71,7 @@ jobs:
       - name: Install cross
         if: ${{ matrix.config.cross }}
         run: |
-          cargo install cross
+          type cross 2>&1 > /dev/null || cargo install --force cross
       - name: Build
         run: ${{ matrix.config.cross && 'cross' || 'cargo' }} build --release --target ${{ matrix.config.target }}
       - name: Test
