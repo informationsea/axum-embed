@@ -47,6 +47,12 @@
 //! In the absence of client support for any compression methods, `axum_embed` will serve the file in its uncompressed form.
 //! If a file with the extension `.br` (for Brotli), `.gz` (for GZip), or `.zz` (for Deflate) is available, `axum_embed` will serve the file in its compressed form.
 //! An uncompressed file is must be available for the compressed file to be served.
+
+pub mod rust_embed {
+    //! [`rust_embed`] is a re-export of the rust-embed crate.
+    pub use rust_embed::*;
+}
+
 use std::{borrow::Cow, convert::Infallible, future::Future, pin::Pin, sync::Arc, task::Poll};
 
 use axum_core::body::Body;
@@ -54,7 +60,7 @@ use axum_core::extract::Request;
 use axum_core::response::Response;
 use chrono::{DateTime, Utc};
 use http::StatusCode;
-use rust_embed::RustEmbed;
+use crate::rust_embed::RustEmbed;
 use tower_service::Service;
 
 #[derive(Clone, RustEmbed)]

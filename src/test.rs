@@ -2,7 +2,7 @@ use super::*;
 use axum::body::Body;
 use http::Request;
 use http_body_util::BodyExt;
-use rust_embed::RustEmbed;
+use crate::rust_embed::RustEmbed;
 use tower::ServiceExt;
 
 #[derive(RustEmbed, Clone)]
