@@ -49,11 +49,10 @@
 //! An uncompressed file is must be available for the compressed file to be served.
 use std::{borrow::Cow, convert::Infallible, future::Future, pin::Pin, sync::Arc, task::Poll};
 
-use axum_core::body::Body;
-use axum_core::extract::Request;
-use axum_core::response::Response;
+use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use http::StatusCode;
+use http::{Request, Response, StatusCode};
+use http_body_util::Full;
 use rust_embed::RustEmbed;
 use tower_service::Service;
 
@@ -144,7 +143,7 @@ impl<E: RustEmbed + Clone> ServeEmbed<E> {
 }
 
 impl<E: RustEmbed + Clone, T: Send + 'static> Service<http::request::Request<T>> for ServeEmbed<E> {
-    type Response = Response;
+    type Response = http::Response<Full<Bytes>>;
     type Error = Infallible;
     type Future = ServeFuture<E, T>;
 
@@ -208,6 +207,13 @@ fn from_acceptable_encoding(acceptable_encoding: Option<&str>) -> Vec<Compressio
     }
 
     compression_methods
+}
+
+fn cow_to_bytes(cow: Cow<'static, [u8]>) -> Bytes {
+    match cow {
+        Cow::Borrowed(x) => Bytes::from(x),
+        Cow::Owned(x) => Bytes::from(x),
+    }
 }
 
 struct GetFileResult<'a> {
@@ -330,7 +336,7 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
 }
 
 impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
-    type Output = Result<Response<Body>, Infallible>;
+    type Output = Result<Response<Full<Bytes>>, Infallible>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         // Accept only GET and HEAD method
@@ -339,7 +345,7 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
             return Poll::Ready(Ok(Response::builder()
                 .status(StatusCode::METHOD_NOT_ALLOWED)
                 .header(http::header::CONTENT_TYPE, "text/plain")
-                .body(Body::from("Method not allowed"))
+                .body(Full::new(Bytes::from("Method not allowed")))
                 .unwrap()));
         }
 
@@ -378,11 +384,11 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
                     })
                     .header(http::header::LOCATION, should_redirect)
                     .header(http::header::CONTENT_TYPE, "text/plain")
-                    .body(if is_fallback {
-                        Body::from("Temporary redirect")
+                    .body(Full::new(if is_fallback {
+                        Bytes::from("Temporary redirect")
                     } else {
-                        Body::from("Moved permanently")
-                    })
+                        Bytes::from("Moved permanently")
+                    }))
                     .unwrap()));
             }
             // if the file is not found, return 404
@@ -407,7 +413,7 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
         {
             return Poll::Ready(Ok(Response::builder()
                 .status(StatusCode::NOT_MODIFIED)
-                .body(Body::empty())
+                .body(Full::new(Bytes::from("")))
                 .unwrap()));
         }
 
@@ -450,7 +456,7 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
         }
 
         Poll::Ready(Ok(response_builder
-            .body(file.data.to_owned().into())
+            .body(Full::new(cow_to_bytes(file.data)))
             .unwrap()))
     }
 }
