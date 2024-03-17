@@ -1,5 +1,6 @@
 use super::*;
 use axum::body::Body;
+use axum::extract::path::ErrorKind;
 use http::Request;
 use http_body_util::BodyExt;
 use rust_embed::RustEmbed;
@@ -658,6 +659,64 @@ async fn test_custom_404() -> anyhow::Result<()> {
     }
     .test(assets.clone())
     .await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_escape_encoding() -> anyhow::Result<()> {
+    let assets = ServeEmbed::<Assets>::with_parameters(
+        None,
+        FallbackBehavior::NotFound,
+        None,
+    );
+
+    // This is an http::uri::ErrorKind::InvalidUriChar, but it's not exposed
+    assert_eq!("invalid uri character".to_string(), Expected {
+        uri: "/with space.txt",
+        status: http::StatusCode::NOT_FOUND,
+        content_type: "text/plain",
+        encoding: None,
+        location: None,
+        body: include_bytes!("../examples/assets/with space.txt"),
+    }
+        .test(assets.clone())
+        .await.err().unwrap().to_string());
+
+    Expected {
+        uri: "/with%20space.txt",
+        status: http::StatusCode::OK,
+        content_type: "text/plain",
+        encoding: None,
+        location: None,
+        body: include_bytes!("../examples/assets/with space.txt"),
+    }
+        .test(assets.clone())
+        .await.unwrap();
+
+    Expected {
+        uri: "/with%20escape.txt",
+        status: http::StatusCode::OK,
+        content_type: "text/plain",
+        encoding: None,
+        location: None,
+        body: include_bytes!("../examples/assets/with%20escape.txt"),
+    }
+        .test(assets.clone())
+        .await.unwrap();
+
+    assert_eq!(
+        "invalid uri character".to_string(),
+        Expected {
+            uri: "/with escape.txt",
+            status: http::StatusCode::OK,
+            content_type: "text/plain",
+            encoding: None,
+            location: None,
+            body: include_bytes!("../examples/assets/with%20escape.txt"),
+        }
+            .test(assets.clone())
+            .await.err().unwrap().to_string());
 
     Ok(())
 }
