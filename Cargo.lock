@@ -200,6 +200,7 @@ dependencies = [
  "http-body",
  "http-body-util",
  "mime_guess",
+ "percent-encoding",
  "rust-embed",
  "tokio",
  "tower",
