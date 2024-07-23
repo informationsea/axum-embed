@@ -71,6 +71,14 @@ pub enum FallbackBehavior {
     Ok,
 }
 
+#[derive(Debug)]
+struct State {
+    fallback_file: Option<String>,
+    fallback_behavior: FallbackBehavior,
+    index_file: Option<String>,
+    base_url: Option<String>,
+}
+
 /// [`ServeEmbed`] is a struct that represents a service for serving embedded files.
 ///
 /// # Parameters
@@ -99,9 +107,7 @@ pub enum FallbackBehavior {
 #[derive(Debug, Clone)]
 pub struct ServeEmbed<E: RustEmbed + Clone> {
     _phantom: std::marker::PhantomData<E>,
-    fallback_file: Arc<Option<String>>,
-    fallback_behavior: FallbackBehavior,
-    index_file: Arc<Option<String>>,
+    state: Arc<State>,
 }
 
 impl<E: RustEmbed + Clone> ServeEmbed<E> {
@@ -116,6 +122,7 @@ impl<E: RustEmbed + Clone> ServeEmbed<E> {
             None,
             FallbackBehavior::NotFound,
             Some("index.html".to_owned()),
+            None,
         )
     }
 
@@ -132,12 +139,16 @@ impl<E: RustEmbed + Clone> ServeEmbed<E> {
         fallback_file: Option<String>,
         fallback_behavior: FallbackBehavior,
         index_file: Option<String>,
+        base_url: Option<String>,
     ) -> Self {
         Self {
             _phantom: std::marker::PhantomData,
-            fallback_file: Arc::new(fallback_file),
-            fallback_behavior,
-            index_file: Arc::new(index_file),
+            state: Arc::new(State {
+                fallback_file,
+                fallback_behavior,
+                index_file,
+                base_url,
+            }),
         }
     }
 }
@@ -157,9 +168,7 @@ impl<E: RustEmbed + Clone, T: Send + 'static> Service<http::request::Request<T>>
     fn call(&mut self, req: http::request::Request<T>) -> Self::Future {
         ServeFuture {
             _phantom: std::marker::PhantomData,
-            fallback_behavior: self.fallback_behavior,
-            fallback_file: self.fallback_file.clone(),
-            index_file: self.index_file.clone(),
+            state: self.state.clone(),
             request: req,
         }
     }
@@ -230,9 +239,7 @@ struct GetFileResult<'a> {
 #[derive(Debug, Clone)]
 pub struct ServeFuture<E: RustEmbed, T> {
     _phantom: std::marker::PhantomData<E>,
-    fallback_behavior: FallbackBehavior,
-    fallback_file: Arc<Option<String>>,
-    index_file: Arc<Option<String>>,
+    state: Arc<State>,
     request: Request<T>,
 }
 
@@ -253,24 +260,27 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
         let mut path_candidate = Cow::Borrowed(path.trim_start_matches('/'));
 
         if path_candidate == "" {
-            if let Some(index_file) = self.index_file.as_ref() {
+            if let Some(index_file) = &self.state.index_file {
                 path_candidate = Cow::Owned(index_file.to_string());
             }
         } else if path_candidate.ends_with('/') {
-            if let Some(index_file) = self.index_file.as_ref().as_ref() {
+            if let Some(index_file) = &self.state.index_file {
                 let new_path_candidate = format!("{}{}", path_candidate, index_file);
                 if E::get(&new_path_candidate).is_some() {
                     path_candidate = Cow::Owned(new_path_candidate);
                 }
             }
         } else {
-            if let Some(index_file) = self.index_file.as_ref().as_ref() {
+            if let Some(index_file) = &self.state.index_file {
                 let new_path_candidate = format!("{}/{}", path_candidate, index_file);
                 if E::get(&new_path_candidate).is_some() {
                     return GetFileResult {
                         path: Cow::Owned(new_path_candidate),
                         file: None,
-                        should_redirect: Some(format!("/{}/", path_candidate)),
+                        should_redirect: match &self.state.base_url {
+                            Some(base) => Some(format!("/{base}/{}/", path_candidate)),
+                            None => Some(format!("/{}/", path_candidate)),
+                        },
                         compression_method: CompressionMethod::Identity,
                         is_fallback: false,
                     };
@@ -309,8 +319,8 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
         if first_try.file.is_some() || first_try.should_redirect.is_some() {
             return first_try;
         }
-        if let Some(fallback_file) = self.fallback_file.as_ref().as_ref() {
-            if fallback_file != path && self.fallback_behavior == FallbackBehavior::Redirect {
+        if let Some(fallback_file) = &self.state.fallback_file {
+            if fallback_file != path && self.state.fallback_behavior == FallbackBehavior::Redirect {
                 return GetFileResult {
                     path: Cow::Borrowed(path),
                     file: None,
@@ -356,8 +366,7 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
                 self.request
                     .headers()
                     .get(http::header::ACCEPT_ENCODING)
-                    .map(|x| x.to_str().ok())
-                    .flatten(),
+                    .and_then(|x| x.to_str().ok())
             ),
         ) {
             // if the file is found, return it
@@ -449,7 +458,7 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
                 response_builder.header(http::header::LAST_MODIFIED, date_to_string(last_modified));
         }
 
-        if is_fallback && self.fallback_behavior != FallbackBehavior::Ok {
+        if is_fallback && self.state.fallback_behavior != FallbackBehavior::Ok {
             response_builder = response_builder.status(StatusCode::NOT_FOUND);
         } else {
             response_builder = response_builder.status(StatusCode::OK);

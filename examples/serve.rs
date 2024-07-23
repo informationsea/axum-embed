@@ -59,6 +59,7 @@ async fn main() -> anyhow::Result<()> {
         } else {
             Some("index.html".to_owned())
         },
+        None,
     );
     let app = axum::Router::new().nest_service("/", assets);
     axum::serve(listener, app).await?;

@@ -181,7 +181,8 @@ async fn test_default_index() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_no_default_index() -> anyhow::Result<()> {
-    let assets = ServeEmbed::<Assets>::with_parameters(None, FallbackBehavior::NotFound, None);
+    let assets =
+        ServeEmbed::<Assets>::with_parameters(None, FallbackBehavior::NotFound, None, None);
 
     Expected {
         uri: "/",
@@ -302,6 +303,7 @@ async fn test_fallback_ok() -> anyhow::Result<()> {
         Some("404.html".to_string()),
         FallbackBehavior::Ok,
         Some("index.html".to_string()),
+        None,
     );
     // for one_file in Assets::iter() {
     //     eprintln!("file: {}", one_file.as_ref());
@@ -426,6 +428,7 @@ async fn test_redirect() -> anyhow::Result<()> {
         Some("404.html".to_string()),
         FallbackBehavior::Redirect,
         Some("index.html".to_string()),
+        None,
     );
 
     Expected {
@@ -547,6 +550,7 @@ async fn test_custom_404() -> anyhow::Result<()> {
         Some("404.html".to_string()),
         FallbackBehavior::NotFound,
         Some("index.html".to_string()),
+        None,
     );
 
     Expected {
