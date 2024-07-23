@@ -194,20 +194,24 @@ impl CompressionMethod {
 }
 
 fn from_acceptable_encoding(acceptable_encoding: Option<&str>) -> Vec<CompressionMethod> {
-    let mut compression_methods = Vec::new();
+    let Some(acceptable_encoding) = acceptable_encoding else {
+        return vec![CompressionMethod::Identity];
+    };
 
+    let mut compression_methods = Vec::new();
     let mut identity_found = false;
-    for acceptable_encoding in acceptable_encoding.unwrap_or("").split(',') {
-        let acceptable_encoding = acceptable_encoding.trim().split(';').next().unwrap();
-        if acceptable_encoding == "br" {
-            compression_methods.push(CompressionMethod::Brotli);
-        } else if acceptable_encoding == "gzip" {
-            compression_methods.push(CompressionMethod::Gzip);
-        } else if acceptable_encoding == "deflate" {
-            compression_methods.push(CompressionMethod::Zlib);
-        } else if acceptable_encoding == "identity" {
-            compression_methods.push(CompressionMethod::Identity);
-            identity_found = true;
+    for acceptable_encoding in acceptable_encoding.split(',') {
+        if let Some(acceptable_encoding) = acceptable_encoding.trim().split(';').next() {
+            if acceptable_encoding == "br" {
+                compression_methods.push(CompressionMethod::Brotli);
+            } else if acceptable_encoding == "gzip" {
+                compression_methods.push(CompressionMethod::Gzip);
+            } else if acceptable_encoding == "deflate" {
+                compression_methods.push(CompressionMethod::Zlib);
+            } else if acceptable_encoding == "identity" {
+                compression_methods.push(CompressionMethod::Identity);
+                identity_found = true;
+            }
         }
     }
 
@@ -265,21 +269,21 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
             }
         } else if path_candidate.ends_with('/') {
             if let Some(index_file) = &self.state.index_file {
-                let new_path_candidate = format!("{}{}", path_candidate, index_file);
+                let new_path_candidate = format!("{path_candidate}{index_file}");
                 if E::get(&new_path_candidate).is_some() {
                     path_candidate = Cow::Owned(new_path_candidate);
                 }
             }
         } else {
             if let Some(index_file) = &self.state.index_file {
-                let new_path_candidate = format!("{}/{}", path_candidate, index_file);
+                let new_path_candidate = format!("{path_candidate}/{index_file}");
                 if E::get(&new_path_candidate).is_some() {
                     return GetFileResult {
                         path: Cow::Owned(new_path_candidate),
                         file: None,
                         should_redirect: match &self.state.base_url {
-                            Some(base) => Some(format!("/{base}/{}/", path_candidate)),
-                            None => Some(format!("/{}/", path_candidate)),
+                            Some(base) => Some(format!("/{base}/{path_candidate}/")),
+                            None => Some(format!("/{path_candidate}/")),
                         },
                         compression_method: CompressionMethod::Identity,
                         is_fallback: false,
@@ -293,7 +297,7 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
 
         if file.is_some() {
             for one_method in acceptable_encoding {
-                if let Some(x) = E::get(&format!("{}{}", path_candidate, one_method.extension())) {
+                if let Some(x) = E::get(&format!("{path_candidate}{}", one_method.extension())) {
                     file = Some(x);
                     compressed_method = *one_method;
                     break;
@@ -324,7 +328,10 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
                 return GetFileResult {
                     path: Cow::Borrowed(path),
                     file: None,
-                    should_redirect: Some(format!("/{}", fallback_file)),
+                    should_redirect: match &self.state.base_url {
+                        Some(base) => Some(format!("/{base}/{fallback_file}")),
+                        None => Some(format!("/{fallback_file}")),
+                    },
                     compression_method: CompressionMethod::Identity,
                     is_fallback: true,
                 };
@@ -366,7 +373,7 @@ impl<E: RustEmbed, T> Future for ServeFuture<E, T> {
                 self.request
                     .headers()
                     .get(http::header::ACCEPT_ENCODING)
-                    .and_then(|x| x.to_str().ok())
+                    .and_then(|x| x.to_str().ok()),
             ),
         ) {
             // if the file is found, return it
