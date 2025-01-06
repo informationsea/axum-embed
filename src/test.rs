@@ -21,7 +21,7 @@ struct Expected {
 
 impl Expected {
     async fn test(&self, assets: ServeEmbed<Assets>) -> anyhow::Result<()> {
-        let app = axum::Router::new().nest_service("/", assets);
+        let app = axum::Router::new().fallback_service(assets);
         let response = app
             .oneshot(
                 Request::builder()
