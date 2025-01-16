@@ -247,10 +247,10 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
     /// A `GetFileResult` instance. If a file is found that matches the path and one of the acceptable encodings, it is included in the result. Otherwise, the result includes the path and `None` for the file.
     fn get_file<'a>(
         &self,
-        path: &'a str,
+        path: Cow<'a, str>,
         acceptable_encoding: &[CompressionMethod],
     ) -> GetFileResult<'a> {
-        let mut path_candidate = Cow::Borrowed(path.trim_start_matches('/'));
+        let mut path_candidate = Cow::Owned(path.trim_start_matches('/').to_string());
 
         if path_candidate == "" {
             if let Some(index_file) = self.index_file.as_ref() {
@@ -305,10 +305,21 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
         path: &'a str,
         acceptable_encoding: &[CompressionMethod],
     ) -> GetFileResult<'a> {
-        let first_try = self.get_file(path, acceptable_encoding);
+        // Check direct match
+        let first_try = self.get_file(Cow::Borrowed(path), acceptable_encoding);
         if first_try.file.is_some() || first_try.should_redirect.is_some() {
             return first_try;
         }
+        // Now check in case the request had HTML escape encoding
+        let decoded_path = percent_encoding::percent_decode_str(path).decode_utf8_lossy();
+        if decoded_path!=path {
+            let decoded_try = self.get_file(decoded_path, acceptable_encoding);
+            if decoded_try.file.is_some() || decoded_try.should_redirect.is_some() {
+                return decoded_try;
+            }
+        }
+
+        // Now check system-like fallback
         if let Some(fallback_file) = self.fallback_file.as_ref().as_ref() {
             if fallback_file != path && self.fallback_behavior == FallbackBehavior::Redirect {
                 return GetFileResult {
@@ -319,7 +330,7 @@ impl<E: RustEmbed, T> ServeFuture<E, T> {
                     is_fallback: true,
                 };
             }
-            let mut fallback_try = self.get_file(fallback_file, acceptable_encoding);
+            let mut fallback_try = self.get_file(Cow::Borrowed(fallback_file), acceptable_encoding);
             fallback_try.is_fallback = true;
             if fallback_try.file.is_some() {
                 return fallback_try;
